@@ -1,4 +1,4 @@
-package org.etrick.util;
+package com.rollc.server.comm.util;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -15,9 +15,13 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.etrick.entity.BeanEntity;
-import org.etrick.entity.Record;
+import org.springframework.beans.BeanUtils;
+import org.springframework.core.LocalVariableTableParameterNameDiscoverer;
 
+import com.rollc.server.app.user.vo.UserLoginRespVO;
+import com.rollc.server.comm.base.BaseLogger;
+import com.rollc.server.comm.entity.BeanEntity;
+import com.rollc.server.comm.entity.Record;
 
 /**
  * @remark 一个神奇的工具。
@@ -27,19 +31,12 @@ import org.etrick.entity.Record;
  */
 public class PropertUtil {
 
-	private static Map<Class<?>,List<Field>> fieldMap=new ConcurrentHashMap<Class<?>, List<Field>>();
-	private static Map<Class<?>,List<Method>> methodMap=new ConcurrentHashMap<Class<?>, List<Method>>();
-	private static Map<Method,List<BeanEntity>> paramMap=new ConcurrentHashMap<Method, List<BeanEntity>>();
-	
-	/**
-	 * 刷新类池信息
-	 */
-	public static void refreshClassPond(){
-		fieldMap.clear();
-		methodMap.clear();
-		paramMap.clear();
-	}
-	
+	private static Map<Class<?>, List<Field>> fieldMap = new ConcurrentHashMap<Class<?>, List<Field>>();
+	private static Map<Class<?>, List<Method>> methodMap = new ConcurrentHashMap<Class<?>, List<Method>>();
+	private static Map<Method, List<BeanEntity>> paramMap = new ConcurrentHashMap<Method, List<BeanEntity>>();
+	private static LocalVariableTableParameterNameDiscoverer discoverer = new LocalVariableTableParameterNameDiscoverer();
+	protected static final BaseLogger logger = BaseLogger.getLogger(PropertUtil.class);
+
 	/**
 	 * 获取对象多个字段的值
 	 * 
@@ -60,24 +57,26 @@ public class PropertUtil {
 		}
 		return values;
 	}
+
 	/**
 	 * Map转对象
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public static <T> T mapToModel(Map map,Class<?> clazz){
-		if(StringUtil.isNullOrEmpty(map)){
+	public static <T> T mapToModel(Map map, Class<?> clazz) {
+		if (StringUtil.isNullOrEmpty(map)) {
 			return null;
 		}
 		try {
-			T value=(T) clazz.newInstance();
-			List<BeanEntity> entitys=getBeanFields(clazz);
-			if(StringUtil.isNullOrEmpty(entitys)){
+			T value = (T) clazz.newInstance();
+			List<BeanEntity> entitys = getBeanFields(clazz);
+			if (StringUtil.isNullOrEmpty(entitys)) {
 				return null;
 			}
-			for(BeanEntity entity:entitys){
+			for (BeanEntity entity : entitys) {
 				try {
 					entity.getSourceField().setAccessible(true);
-					entity.getSourceField().set(value, parseValue(map.get(entity.getFieldName()), entity.getFieldType()));
+					entity.getSourceField().set(value,
+							parseValue(map.get(entity.getFieldName()), entity.getFieldType()));
 				} catch (Exception e) {
 				}
 			}
@@ -86,6 +85,7 @@ public class PropertUtil {
 		}
 		return null;
 	}
+
 	/**
 	 * 获取方法参数列表
 	 * 
@@ -94,7 +94,7 @@ public class PropertUtil {
 	 */
 	public static List<BeanEntity> getMethodParas(Method method) {
 		try {
-			if(paramMap.containsKey(method)){
+			if (paramMap.containsKey(method)) {
 				return paramMap.get(method);
 			}
 			Class<?>[] types = method.getParameterTypes();
@@ -125,8 +125,7 @@ public class PropertUtil {
 	public static List<String> getMethodParaNames(Method method) {
 		try {
 			List<String> paras = new ArrayList<String>();
-			List<String> paramNames=MethodUtil.getMethodParamNames((Class<?>)getFieldValue(method, "clazz"),method);
-			for (String paraName : paramNames) {
+			for (String paraName : discoverer.getParameterNames(method)) {
 				paras.add(paraName);
 			}
 			return paras;
@@ -147,6 +146,7 @@ public class PropertUtil {
 		}
 		return obj.getClass();
 	}
+
 	/**
 	 * 获取class的字段对象
 	 * 
@@ -222,6 +222,7 @@ public class PropertUtil {
 			return null;
 		}
 	}
+
 	/**
 	 * 一个神奇的方法：从一个List提取字段名统一的分组
 	 * 
@@ -231,8 +232,7 @@ public class PropertUtil {
 	 * @return
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public static <T> List<T> getGroup(List<?> objs, String fieldName,
-			Object fieldValue) {
+	public static <T> List<T> getGroup(List<?> objs, String fieldName, Object fieldValue) {
 		if (StringUtil.isNullOrEmpty(objs)) {
 			return null;
 		}
@@ -252,9 +252,8 @@ public class PropertUtil {
 	 * @return
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public static <T> T getByList(List<?> objs, String fieldName,
-			Object fieldValue) {
-		if (StringUtil.findEmptyIndex(objs,fieldName,fieldValue)>-1) {
+	public static <T> T getByList(List<?> objs, String fieldName, Object fieldValue) {
+		if (StringUtil.findEmptyIndex(objs, fieldName, fieldValue) > -1) {
 			return null;
 		}
 		Map map = PropertUtil.listToMap(objs, fieldName);
@@ -263,6 +262,7 @@ public class PropertUtil {
 		}
 		return (T) map.get(fieldValue);
 	}
+
 	/**
 	 * 获取对象某个字段值
 	 * 
@@ -286,14 +286,15 @@ public class PropertUtil {
 			return null;
 		}
 	}
-	
+
 	/**
 	 * 获取字段值，支持点属性
+	 * 
 	 * @param bean
 	 * @param paraName
 	 * @return
 	 */
-	public static Object getFieldValue(Object bean,String paraName){
+	public static Object getFieldValue(Object bean, String paraName) {
 		if (StringUtil.isNullOrEmpty(bean)) {
 			return null;
 		}
@@ -301,14 +302,13 @@ public class PropertUtil {
 		if (StringUtil.isNullOrEmpty(beanEntitys)) {
 			return null;
 		}
-		if(!paraName.contains(".")){
+		if (!paraName.contains(".")) {
 			return PropertUtil.getFieldValueCurr(bean, paraName);
 		}
 		List<String> fields = new ArrayList<String>(Arrays.asList(paraName.split("\\.")));
-		Object beanTmp=PropertUtil.getFieldValue(bean, fields.get(0));
+		Object beanTmp = PropertUtil.getFieldValue(bean, fields.get(0));
 		fields.remove(0);
 		return getFieldValue(beanTmp, StringUtil.collectionMosaic(fields, "."));
-		
 	}
 
 	/**
@@ -360,6 +360,7 @@ public class PropertUtil {
 		}
 		return fieldNames;
 	}
+
 	/**
 	 * 对象相同字段组成新list
 	 * 
@@ -376,7 +377,7 @@ public class PropertUtil {
 		for (Object obj : list) {
 			try {
 				Object newObj = cla.newInstance();
-				copyProperties(obj, newObj);
+				BeanUtils.copyProperties(obj, newObj);
 				ls.add((T) newObj);
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -385,29 +386,6 @@ public class PropertUtil {
 		return ls;
 	}
 
-	
-	@SuppressWarnings("unchecked")
-	public static void copyProperties(Object source, Object targe) throws Exception  
-	{  
-	   if(StringUtil.findNull(source,targe)>-1){
-		   return;
-	   }
-	   List<BeanEntity> sourceBeanEntitys=getBeanFields(source);
-	   Map<String, BeanEntity> beanEntitysMap=(Map<String, BeanEntity>) listToMap(sourceBeanEntitys, "fieldName");
-	   List<BeanEntity> targeBeanEntitys=getBeanFields(targe);
-	   for(BeanEntity beanEntity:targeBeanEntitys){
-		   try {
-			   Object value=beanEntitysMap.get(beanEntity.getSourceField().getName());
-			   if(StringUtil.isNullOrEmpty(value)){
-				   continue;
-			   }
-			   beanEntity.getSourceField().setAccessible(true);
-			   beanEntity.getSourceField().set(targe, parseValue(value, beanEntity.getSourceField().getType()));
-		} catch (Exception e) {
-			// TODO: handle exception
-		}
-	   }
-	}  
 	/**
 	 * 设置字段值
 	 * 
@@ -424,6 +402,7 @@ public class PropertUtil {
 	public static void setPropertiesCurr(Object object, String propertyName, Object value) throws IllegalArgumentException, IllegalAccessException {
 		Field field = getField(object.getClass(), propertyName);
 		if (StringUtil.isNullOrEmpty(field)) {
+			logger.error("字段未找到:" + propertyName);
 			return;
 		}
 		field.setAccessible(true);
@@ -473,8 +452,6 @@ public class PropertUtil {
 		setProperties(object, fieldName, beanTmp);
 	}
 
-	
-
 	/**
 	 * 设置集合对象某字段值
 	 * 
@@ -483,8 +460,7 @@ public class PropertUtil {
 	 * @param fieldsValue
 	 * @return
 	 */
-	public static List<?> setFieldValues(List<?> objs, String fieldName,
-			Object fieldsValue) {
+	public static List<?> setFieldValues(List<?> objs, String fieldName, Object fieldsValue) {
 		if (StringUtil.isNullOrEmpty(objs)) {
 			return null;
 		}
@@ -505,13 +481,6 @@ public class PropertUtil {
 		return objs;
 	}
 
-
-	
-
-	
-
-	
-
 	/**
 	 * 一个神奇的方法：一个List根据某个字段排序
 	 * 
@@ -525,7 +494,7 @@ public class PropertUtil {
 			return null;
 		}
 		Map<Object, List> maps = listToMaps(objs, fieldName);
-		if(StringUtil.isNullOrEmpty(maps)){
+		if (StringUtil.isNullOrEmpty(maps)) {
 			return null;
 		}
 		List list = new ArrayList();
@@ -589,6 +558,7 @@ public class PropertUtil {
 		}
 		return map;
 	}
+
 	/**
 	 * List转为Map。fieldName作为Key，对象作为Value
 	 * 
@@ -601,9 +571,9 @@ public class PropertUtil {
 			return null;
 		}
 		Map<String, Object> map = new HashMap<String, Object>();
-		List<BeanEntity> entitys=PropertUtil.getBeanFields(obj);
-		for(BeanEntity entity:entitys){
-			if(StringUtil.isNullOrEmpty(entity.getFieldValue())){
+		List<BeanEntity> entitys = PropertUtil.getBeanFields(obj);
+		for (BeanEntity entity : entitys) {
+			if (StringUtil.isNullOrEmpty(entity.getFieldValue())) {
 				continue;
 			}
 			map.put(entity.getFieldName(), entity.getFieldValue());
@@ -613,6 +583,7 @@ public class PropertUtil {
 		}
 		return map;
 	}
+
 	/**
 	 * List转为Map。fieldName作为Key，对象作为Value
 	 * 
@@ -638,13 +609,13 @@ public class PropertUtil {
 		}
 		return map;
 	}
+
 	public static List<Method> loadMethods(Class<?> clazz) {
-		List<Method> methods=methodMap.get(clazz);
-		if(!StringUtil.isNullOrEmpty(methods)){
+		List<Method> methods = methodMap.get(clazz);
+		if (!StringUtil.isNullOrEmpty(methods)) {
 			return methods;
 		}
-		methods = new ArrayList<Method>(
-				Arrays.<Method> asList(clazz.getDeclaredMethods()));
+		methods = new ArrayList<Method>(Arrays.<Method>asList(clazz.getDeclaredMethods()));
 		if (!StringUtil.isNullOrEmpty(clazz.getSuperclass())) {
 			methods.addAll(loadMethods(clazz.getSuperclass()));
 		}
@@ -658,8 +629,7 @@ public class PropertUtil {
 	 * @param clazz
 	 * @return
 	 */
-	public static <T> T loadEnumByField(Class<T> clazz, String fieldName,
-			Object value) {
+	public static <T> T loadEnumByField(Class<T> clazz, String fieldName, Object value) {
 		if (!clazz.isEnum()) {
 			throw new InvalidParameterException();
 		}
@@ -698,8 +668,7 @@ public class PropertUtil {
 			for (Field field : fields) {
 				try {
 					if (!(clazz.isAssignableFrom(field.getType()))
-							&& !(("[L" + clazz.getName() + ";").equals(field
-									.getType().getName()))) {
+							&& !(("[L" + clazz.getName() + ";").equals(field.getType().getName()))) {
 						fieldList.add(field);
 					}
 				} catch (Exception e) {
@@ -723,6 +692,7 @@ public class PropertUtil {
 		}
 		return null;
 	}
+
 	/**
 	 * 获取class的字段列表
 	 * 
@@ -730,8 +700,8 @@ public class PropertUtil {
 	 * @return
 	 */
 	public static List<Field> loadFields(Class<?> clazz) {
-		List<Field> fields=fieldMap.get(clazz);
-		if(!StringUtil.isNullOrEmpty(fields)){
+		List<Field> fields = fieldMap.get(clazz);
+		if (!StringUtil.isNullOrEmpty(fields)) {
 			return fields;
 		}
 		fields = new ArrayList<Field>();
@@ -746,6 +716,7 @@ public class PropertUtil {
 		fieldMap.put(clazz, fields);
 		return fields;
 	}
+
 	/**
 	 * 将对象某些字段置空
 	 * 
@@ -758,8 +729,7 @@ public class PropertUtil {
 			return;
 		}
 		List<BeanEntity> fields = PropertUtil.getBeanFields(obj);
-		Map<String, BeanEntity> map = (Map<String, BeanEntity>) listToMap(
-				fields, "fieldName");
+		Map<String, BeanEntity> map = (Map<String, BeanEntity>) listToMap(fields, "fieldName");
 		for (String tmp : fieldNames) {
 			try {
 				if (map.containsKey(tmp)) {
@@ -785,8 +755,7 @@ public class PropertUtil {
 			return;
 		}
 		List<BeanEntity> fields = PropertUtil.getBeanFields(obj);
-		Map<String, BeanEntity> map = (Map<String, BeanEntity>) listToMap(
-				fields, "fieldName");
+		Map<String, BeanEntity> map = (Map<String, BeanEntity>) listToMap(fields, "fieldName");
 		for (String tmp : fieldNames) {
 			try {
 				if (!map.containsKey(tmp)) {
@@ -800,9 +769,6 @@ public class PropertUtil {
 		}
 	}
 
-
-	
-	
 	/**
 	 * value值转换为对应的类型
 	 * 
@@ -867,7 +833,7 @@ public class PropertUtil {
 				return value;
 			}
 			if (Date.class.isAssignableFrom(clazz)) {
-				value=DateUtils.toDate(value);
+				value = DateUtils.toDate(value);
 				return value;
 			}
 			return value;
@@ -875,5 +841,12 @@ public class PropertUtil {
 			e.printStackTrace();
 			return null;
 		}
+	}
+
+	public static void main(String[] args) throws Exception {
+		UserLoginRespVO reqVO = new UserLoginRespVO();
+		PropertUtil.setProperties(reqVO, "token", 1001);
+		System.out.println(reqVO.getToken());
+
 	}
 }
