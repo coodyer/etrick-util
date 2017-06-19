@@ -16,7 +16,7 @@ import java.util.zip.GZIPInputStream;
 import org.etrick.entity.HttpEntity;
 
 /**
- * HTTP工具类 支持Cookie操作、支持GZIP解压、支持图片下载、支持Head操作、支持编码 BY:WebSOS QQ644556636
+ * HTTP工具类 支持Cookie操作、支持GZIP解压、支持图片下载、支持Head操作、支持编码 BY:etrick QQ644556636
  * 2015-05-26
  */
 public class HttpUtil {

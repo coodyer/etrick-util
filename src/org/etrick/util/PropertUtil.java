@@ -21,7 +21,7 @@ import org.etrick.entity.Record;
 
 /**
  * @remark 一个神奇的工具。
- * @author WebSOS
+ * @author etrick
  * @email 644556636@qq.com
  * @blog http://54sb.org
  */

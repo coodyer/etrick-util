@@ -8,7 +8,6 @@ import org.etrick.util.PropertUtil;
 import org.etrick.util.StringUtil;
 
 
-
 @SuppressWarnings("serial")
 public class BaseModel implements Serializable{
 
